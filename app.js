@@ -1,6 +1,6 @@
 const appState = {
-  currentDate: new Date(2026, 9, 2),
-  selectedDate: new Date(2026, 9, 2),
+  currentDate: new Date(),
+  selectedDate: new Date(),
   reportData: null,
   filteredData: [],
   sortOrder: 'rack',
@@ -15,17 +15,33 @@ const MONTH_NAMES_ID = [
 
 const DAY_NAMES_ID = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
+// DOM Elements
+const dateInput = document.getElementById('dateInput');
+const calendarToggle = document.getElementById('calendarToggle');
+const calendarPopover = document.getElementById('calendarPopover');
+const calendarLabel = document.getElementById('calendarLabel');
+const calendarDays = document.getElementById('calendarDays');
+const prevMonth = document.getElementById('prevMonth');
+const nextMonth = document.getElementById('nextMonth');
 const storeCodeInput = document.getElementById('storeCode');
+const generateReportBtn = document.getElementById('generateReportBtn');
+const reportTableBody = document.getElementById('reportTableBody');
+const sortControl = document.querySelectorAll('.sort-btn');
+const rackFilter = document.getElementById('rackFilter');
+const hideZeroToggle = document.getElementById('hideZeroToggle');
+const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+const adminLoginBtn = document.getElementById('adminLoginBtn');
+const historyBtn = document.getElementById('historyBtn');
+const statusBanner = document.getElementById('statusBanner');
+
 document.addEventListener('DOMContentLoaded', () => {
   initializeDatePicker();
   setupEventListeners();
-  loadDummyData();
-  updateDateInput();
-  renderCalendar();
 });
 
 function initializeDatePicker() {
-  const today = new Date(2026, 9, 2);
+  const today = new Date();
   appState.currentDate = new Date(today);
   appState.selectedDate = new Date(today);
   updateDateInput();
@@ -52,16 +68,20 @@ function renderCalendar() {
 
   calendarDays.innerHTML = '';
 
+  // Previous month days
   for (let i = firstDay - 1; i >= 0; i--) {
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.textContent = prevMonthDays - i;
     btn.classList.add('inactive');
     btn.disabled = true;
     calendarDays.appendChild(btn);
   }
 
+  // Current month days
   for (let day = 1; day <= daysInMonth; day++) {
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.textContent = day;
 
     const btnDate = new Date(year, month, day);
@@ -71,7 +91,8 @@ function renderCalendar() {
 
     if (isSelected) btn.classList.add('selected');
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
       appState.selectedDate = new Date(year, month, day);
       updateDateInput();
       renderCalendar();
@@ -81,11 +102,13 @@ function renderCalendar() {
     calendarDays.appendChild(btn);
   }
 
+  // Next month days
   const totalCells = calendarDays.children.length;
   const remainingCells = 42 - totalCells;
 
   for (let day = 1; day <= remainingCells; day++) {
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.textContent = day;
     btn.classList.add('inactive');
     btn.disabled = true;
@@ -94,27 +117,36 @@ function renderCalendar() {
 }
 
 function setupEventListeners() {
-  calendarToggle.addEventListener('click', () => {
+  // Calendar toggle
+  calendarToggle.addEventListener('click', (e) => {
+    e.preventDefault();
     calendarPopover.classList.toggle('hidden');
   });
 
+  // Close calendar on outside click
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.date-field-group')) {
+    const dateField = document.querySelector('.date-field-group');
+    if (dateField && !dateField.contains(e.target)) {
       calendarPopover.classList.add('hidden');
     }
   });
 
-  prevMonth.addEventListener('click', () => {
+  // Calendar navigation
+  prevMonth.addEventListener('click', (e) => {
+    e.preventDefault();
     appState.currentDate.setMonth(appState.currentDate.getMonth() - 1);
     renderCalendar();
   });
 
-  nextMonth.addEventListener('click', () => {
+  nextMonth.addEventListener('click', (e) => {
+    e.preventDefault();
     appState.currentDate.setMonth(appState.currentDate.getMonth() + 1);
     renderCalendar();
   });
 
-  generateReportBtn.addEventListener('click', () => {
+  // Generate report
+  generateReportBtn.addEventListener('click', (e) => {
+    e.preventDefault();
     const storeCode = storeCodeInput.value.trim();
     if (!storeCode || !dateInput.value.trim()) {
       showBanner('error', 'Kode Toko dan Tanggal SO wajib diisi');
@@ -123,50 +155,96 @@ function setupEventListeners() {
 
     showBanner('empty', 'Memuat data...');
     setTimeout(() => {
-      loadDummyData();
+      loadDummyData(storeCode);
       updateMetadata();
       filterAndRenderTable();
       hideBanner();
-    }, 300);
+    }, 500);
   });
 
-  sortControl.addEventListener('change', (e) => {
-    appState.sortOrder = e.target.value;
-    filterAndRenderTable();
+  // Sort buttons
+  sortControl.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      sortControl.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      appState.sortOrder = btn.getAttribute('data-sort');
+      filterAndRenderTable();
+    });
   });
 
+  // Rack filter
   rackFilter.addEventListener('change', (e) => {
     appState.rackFilter = e.target.value;
     filterAndRenderTable();
   });
 
+  // Hide zero toggle
   hideZeroToggle.addEventListener('change', (e) => {
     appState.hideZero = e.target.checked;
     filterAndRenderTable();
   });
 
-  downloadExcelBtn.addEventListener('click', handleDownloadExcel);
-  downloadPdfBtn.addEventListener('click', handleDownloadPdf);
+  // Download buttons
+  downloadExcelBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    handleDownloadExcel();
+  });
 
-  adminLoginBtn.addEventListener('click', () => showModal('adminModal'));
-  historyBtn.addEventListener('click', () => showModal('historyModal'));
+  downloadPdfBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    handleDownloadPdf();
+  });
 
-  document.querySelectorAll('[data-close]').forEach((button) => {
-    button.addEventListener('click', (event) => {
-      const modalId = event.currentTarget.getAttribute('data-close');
+  // Admin login
+  adminLoginBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    showModal('adminModal');
+  });
+
+  // History button
+  historyBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    showModal('historyModal');
+  });
+
+  // Modal close buttons
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const modalId = btn.getAttribute('data-close');
       hideModal(modalId);
     });
   });
+
+  // Modal form submissions
+  const adminForm = document.getElementById('adminForm');
+  if (adminForm) {
+    adminForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      hideModal('adminModal');
+      showBanner('success', 'Login admin berhasil');
+    });
+  }
+
+  const historyForm = document.getElementById('historyForm');
+  if (historyForm) {
+    historyForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      hideModal('historyModal');
+      showBanner('success', 'Riwayat laporan berhasil dibuka');
+    });
+  }
 }
 
 function showModal(modalId) {
-  const el = document.getElementById(modalId);
-  if (el) el.classList.remove('hidden');
+  const modal = document.getElementById(modalId);
+  if (modal) modal.classList.remove('hidden');
 }
 
 function hideModal(modalId) {
-  const el = document.getElementById(modalId);
-  if (el) el.classList.add('hidden');
+  const modal = document.getElementById(modalId);
+  if (modal) modal.classList.add('hidden');
 }
 
 function showBanner(type, message) {
@@ -179,59 +257,56 @@ function hideBanner() {
   statusBanner.classList.add('hidden');
 }
 
-function loadDummyData() {
-  const seed = [
-    { plu: 403418, namaBarang: 'CADBURY DM CASHEW NUT 52G', rack: 'HA3', stockFisik: 6, stockOnhand: 6, plusMinus: 0, selisihRupiah: -12566.84 },
-    { plu: 109481, namaBarang: 'SILVER QUEEN CHUNKY WHT 82G', rack: 'HA3', stockFisik: 7, stockOnhand: 8, plusMinus: -1, selisihRupiah: 19250.71 },
-    { plu: 230258, namaBarang: 'SILVER QUEEN CHUNKY CSW 26G', rack: 'HA3', stockFisik: 13, stockOnhand: 13, plusMinus: 0, selisihRupiah: -7038.91 },
-    { plu: 411652, namaBarang: 'CADBURY DM CASHEW NUT 85G', rack: 'HA4', stockFisik: 0, stockOnhand: 0, plusMinus: 0, selisihRupiah: -35298.5 },
-    { plu: 120595, namaBarang: 'CADBURY DAIRY MILK 22G', rack: 'HA4', stockFisik: 7, stockOnhand: 8, plusMinus: -1, selisihRupiah: 6655.7 },
-    { plu: 131418, namaBarang: 'MENTOS FRUIT ROLL 37G', rack: 'HA4', stockFisik: 9, stockOnhand: 9, plusMinus: 0, selisihRupiah: 3003.24 },
-    { plu: 423911, namaBarang: 'CHUPACHUPS MELODY POPS 15G', rack: 'HA4', stockFisik: 12, stockOnhand: 12, plusMinus: 0, selisihRupiah: 6765.0 },
-    { plu: 429453, namaBarang: 'CHUPA CHUPS SURPRISE AST 12G', rack: 'HA4', stockFisik: 3, stockOnhand: 3, plusMinus: 0, selisihRupiah: -9199.89 },
-    { plu: 431475, namaBarang: 'CADBURY DAIRY MILK 85G', rack: 'HA4', stockFisik: 6, stockOnhand: 6, plusMinus: 0, selisihRupiah: 35303.62 },
-    { plu: 451006, namaBarang: 'CHUPACHUPS BIGBABOL PAINTER 20G', rack: 'HA4', stockFisik: 5, stockOnhand: 5, plusMinus: 0, selisihRupiah: 2061.44 },
-    { plu: 466370, namaBarang: 'MENTOS FEELING BERRY ROLL 37.8G', rack: 'HA4', stockFisik: 9, stockOnhand: 9, plusMinus: 0, selisihRupiah: 3003.22 },
-    { plu: 141013, namaBarang: 'CHUPACHUPS BIGBABOL FRUTI STK55', rack: 'HA4', stockFisik: 10, stockOnhand: 10, plusMinus: 0, selisihRupiah: 10307.2 },
-    { plu: 228753, namaBarang: 'MENTOS GRAPE ROLL 37G', rack: 'HA4', stockFisik: 7, stockOnhand: 7, plusMinus: 0, selisihRupiah: -3003.23 },
-    { plu: 408772, namaBarang: 'KOPIKO CANDY BLISTER 32G', rack: 'HA4', stockFisik: 6, stockOnhand: 6, plusMinus: 0, selisihRupiah: 5000.0 },
-    { plu: 466605, namaBarang: 'MARI CAFE CAPPUCCINO 35G', rack: 'HA5', stockFisik: 6, stockOnhand: 6, plusMinus: 0, selisihRupiah: 6756.75 },
-    { plu: 422923, namaBarang: 'HEXOS MINT 8X2.5G', rack: 'HA5', stockFisik: 12, stockOnhand: 12, plusMinus: 0, selisihRupiah: 11857.45 },
-    { plu: 443566, namaBarang: 'FRUTA GUMMY MIX 45G', rack: 'HA5', stockFisik: 6, stockOnhand: 4, plusMinus: 2, selisihRupiah: -3198.19 }
+function loadDummyData(storeCode) {
+  const items = [
+    { plu: 403418, namaBarang: 'CADBURY DM CASHEW NUT 52G', rack: 'HA3', stockFisik: 6, stockOnhand: 6, selisihRupiah: -12566.84 },
+    { plu: 109481, namaBarang: 'SILVER QUEEN CHUNKY WHT 82G', rack: 'HA3', stockFisik: 7, stockOnhand: 8, selisihRupiah: 19250.71 },
+    { plu: 230258, namaBarang: 'SILVER QUEEN CHUNKY CSW 26G', rack: 'HA3', stockFisik: 13, stockOnhand: 13, selisihRupiah: -7038.91 },
+    { plu: 411652, namaBarang: 'CADBURY DM CASHEW NUT 85G', rack: 'HA4', stockFisik: 0, stockOnhand: 0, selisihRupiah: -35298.5 },
+    { plu: 120595, namaBarang: 'CADBURY DAIRY MILK 22G', rack: 'HA4', stockFisik: 7, stockOnhand: 8, selisihRupiah: 6655.7 },
+    { plu: 131418, namaBarang: 'MENTOS FRUIT ROLL 37G', rack: 'HA4', stockFisik: 9, stockOnhand: 9, selisihRupiah: 3003.24 },
+    { plu: 423911, namaBarang: 'CHUPACHUPS MELODY POPS 15G', rack: 'HA4', stockFisik: 12, stockOnhand: 12, selisihRupiah: 6765.0 },
+    { plu: 429453, namaBarang: 'CHUPA CHUPS SURPRISE AST 12G', rack: 'HA4', stockFisik: 3, stockOnhand: 3, selisihRupiah: -9199.89 },
+    { plu: 431475, namaBarang: 'CADBURY DAIRY MILK 85G', rack: 'HA4', stockFisik: 6, stockOnhand: 6, selisihRupiah: 35303.62 },
+    { plu: 451006, namaBarang: 'CHUPACHUPS BIGBABOL PAINTER 20G', rack: 'HA4', stockFisik: 5, stockOnhand: 5, selisihRupiah: 2061.44 },
+    { plu: 466370, namaBarang: 'MENTOS FEELING BERRY ROLL 37.8G', rack: 'HA4', stockFisik: 9, stockOnhand: 9, selisihRupiah: 3003.22 },
+    { plu: 141013, namaBarang: 'CHUPACHUPS BIGBABOL FRUTI STK55', rack: 'HA4', stockFisik: 10, stockOnhand: 10, selisihRupiah: 10307.2 },
+    { plu: 228753, namaBarang: 'MENTOS GRAPE ROLL 37G', rack: 'HA4', stockFisik: 7, stockOnhand: 7, selisihRupiah: -3003.23 },
+    { plu: 408772, namaBarang: 'KOPIKO CANDY BLISTER 32G', rack: 'HA4', stockFisik: 6, stockOnhand: 6, selisihRupiah: 5000.0 },
+    { plu: 466605, namaBarang: 'MARI CAFE CAPPUCCINO 35G', rack: 'HA5', stockFisik: 6, stockOnhand: 6, selisihRupiah: 6756.75 },
+    { plu: 422923, namaBarang: 'HEXOS MINT 8X2.5G', rack: 'HA5', stockFisik: 12, stockOnhand: 12, selisihRupiah: 11857.45 },
+    { plu: 443566, namaBarang: 'FRUTA GUMMY MIX 45G', rack: 'HA5', stockFisik: 6, stockOnhand: 4, selisihRupiah: -3198.19 },
+    { plu: 123456, namaBarang: 'SAMPLE ZERO 1', rack: 'HA3', stockFisik: 5, stockOnhand: 5, selisihRupiah: 0 },
+    { plu: 234567, namaBarang: 'SAMPLE ZERO 2', rack: 'HA4', stockFisik: 8, stockOnhand: 8, selisihRupiah: 0 },
+    { plu: 345678, namaBarang: 'SAMPLE ZERO 3', rack: 'HA5', stockFisik: 9, stockOnhand: 9, selisihRupiah: 0 }
   ];
 
-  const extraZeroRows = [
-    { plu: 123456, namaBarang: 'SAMPLE ZERO 1', rack: 'HA3', stockFisik: 5, stockOnhand: 5, plusMinus: 0, selisihRupiah: 0 },
-    { plu: 234567, namaBarang: 'SAMPLE ZERO 2', rack: 'HA4', stockFisik: 8, stockOnhand: 8, plusMinus: 0, selisihRupiah: 0 },
-    { plu: 345678, namaBarang: 'SAMPLE ZERO 3', rack: 'HA5', stockFisik: 9, stockOnhand: 9, plusMinus: 0, selisihRupiah: 0 }
-  ];
+  items.forEach(item => {
+    item.plusMinus = item.stockFisik - item.stockOnhand;
+  });
 
   appState.reportData = {
     reportName: 'PROSENTASE STOCK OPNAME',
-    storeCode: 'T939',
-    storeName: 'ALFAMART CIROKEK / 081294677912',
-    dateSo: '02-10-2026',
+    storeCode: storeCode,
+    storeName: `ALFAMART ${storeCode} / ${storeCode}${Math.random().toString().slice(2, 11)}`,
+    dateSo: dateInput.value,
     soType: 'SO REGULAR TOKO',
-    items: [...seed, ...extraZeroRows]
+    items: items
   };
-
-  storeCodeInput.value = 'T939';
-  updateMetadata();
-  filterAndRenderTable();
 }
 
 function updateMetadata() {
   if (!appState.reportData) return;
 
   document.getElementById('metaReport').textContent = appState.reportData.reportName;
-  document.getElementById('metaStore').textContent = `${appState.reportData.storeCode} / ${appState.reportData.storeName}`;
+  document.getElementById('metaStore').textContent = appState.reportData.storeName;
   document.getElementById('metaSoDate').textContent = appState.reportData.dateSo;
-  document.getElementById('metaPrintDate').textContent = formatDateId(new Date(2026, 9, 2));
+  document.getElementById('metaPrintDate').textContent = formatDateId(new Date());
   document.getElementById('metaSoType').textContent = appState.reportData.soType;
 
   const racks = [...new Set(appState.reportData.items.map(item => item.rack))].sort();
   rackFilter.innerHTML = '<option value="all">Semua Rack</option>';
-  racks.forEach((rack) => {
+  racks.forEach(rack => {
     const option = document.createElement('option');
     option.value = rack;
     option.textContent = rack;
@@ -262,8 +337,6 @@ function filterAndRenderTable() {
     case 'minus-plus':
       data.sort((a, b) => a.selisihRupiah - b.selisihRupiah);
       break;
-    default:
-      break;
   }
 
   appState.filteredData = data;
@@ -276,7 +349,7 @@ function renderTable() {
 
   if (appState.filteredData.length === 0) {
     const row = reportTableBody.insertRow();
-    row.innerHTML = '<td colspan="8" style="text-align:center; color:#9ca3af;">Tidak ada data yang sesuai dengan filter</td>';
+    row.innerHTML = '<td colspan="8" style="text-align:center; color:#9ca3af; padding: 40px 12px;">Tidak ada data yang sesuai dengan filter</td>';
     document.getElementById('totalDiffValue').textContent = 'Rp 0';
     return;
   }
@@ -308,13 +381,9 @@ function renderTable() {
 function updateSummary() {
   if (!appState.reportData) return;
 
-  const items = appState.hideZero
-    ? appState.reportData.items.filter(item => item.selisihRupiah !== 0)
-    : appState.reportData.items;
-
   const totalItemSO = appState.reportData.items.length;
   const totalItemSelisih = appState.reportData.items.filter(item => item.selisihRupiah !== 0).length;
-  const percentage = ((totalItemSelisih / totalItemSO) * 100).toFixed(2);
+  const percentage = totalItemSO > 0 ? ((totalItemSelisih / totalItemSO) * 100).toFixed(2) : 0;
 
   document.getElementById('summaryTotalItems').textContent = totalItemSO;
   document.getElementById('summaryMismatchItems').textContent = totalItemSelisih;
@@ -322,15 +391,18 @@ function updateSummary() {
 }
 
 function handleDownloadExcel() {
-  if (!appState.reportData) return;
+  if (!appState.reportData || appState.filteredData.length === 0) {
+    showBanner('error', 'Tidak ada data untuk diunduh');
+    return;
+  }
 
   const rows = [
     ['LAPORAN PROSENTASE STOCK OPNAME'],
     [],
     ['Report', appState.reportData.reportName],
-    ['Toko', `${appState.reportData.storeCode} / ${appState.reportData.storeName}`],
+    ['Toko', appState.reportData.storeName],
     ['Tanggal SO', appState.reportData.dateSo],
-    ['Tanggal Cetak', formatDateId(new Date(2026, 9, 2))],
+    ['Tanggal Cetak', formatDateId(new Date())],
     ['Jenis SO', appState.reportData.soType],
     [],
     ['No', 'PLU', 'Nama Barang', 'Rack', 'Stock Fisik', 'Stock Onhand Toko (Akhir)', 'Plus/Minus', 'Selisih Rupiah']
@@ -360,7 +432,10 @@ function handleDownloadExcel() {
 }
 
 function handleDownloadPdf() {
-  if (!appState.reportData) return;
+  if (!appState.reportData || appState.filteredData.length === 0) {
+    showBanner('error', 'Tidak ada data untuk diunduh');
+    return;
+  }
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
@@ -371,11 +446,11 @@ function handleDownloadPdf() {
   let y = 28;
   pdf.text(`Report : ${appState.reportData.reportName}`, 20, y);
   y += 6;
-  pdf.text(`Toko : ${appState.reportData.storeCode} / ${appState.reportData.storeName}`, 20, y);
+  pdf.text(`Toko : ${appState.reportData.storeName}`, 20, y);
   y += 6;
   pdf.text(`Tanggal SO : ${appState.reportData.dateSo}`, 20, y);
   y += 6;
-  pdf.text(`Tanggal Cetak : ${formatDateId(new Date(2026, 9, 2))}`, 20, y);
+  pdf.text(`Tanggal Cetak : ${formatDateId(new Date())}`, 20, y);
   y += 6;
   pdf.text(`Jenis SO : ${appState.reportData.soType}`, 20, y);
 
@@ -417,21 +492,3 @@ function formatDateId(date) {
   const year = date.getFullYear();
   return `${day}-${month}-${year}`;
 }
-
-const dateInput = document.getElementById('dateInput');
-const calendarToggle = document.getElementById('calendarToggle');
-const calendarPopover = document.getElementById('calendarPopover');
-const calendarLabel = document.getElementById('calendarLabel');
-const calendarDays = document.getElementById('calendarDays');
-const prevMonth = document.getElementById('prevMonth');
-const nextMonth = document.getElementById('nextMonth');
-const generateReportBtn = document.getElementById('generateReportBtn');
-const reportTableBody = document.getElementById('reportTableBody');
-const sortControl = document.getElementById('sortControl');
-const rackFilter = document.getElementById('rackFilter');
-const hideZeroToggle = document.getElementById('hideZeroToggle');
-const downloadExcelBtn = document.getElementById('downloadExcelBtn');
-const downloadPdfBtn = document.getElementById('downloadPdfBtn');
-const adminLoginBtn = document.getElementById('adminLoginBtn');
-const historyBtn = document.getElementById('historyBtn');
-const statusBanner = document.getElementById('statusBanner');
