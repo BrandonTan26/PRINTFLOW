@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laporan Prosentase Stock Opname</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="page-header">
+        <h1>Laporan Prosentase Stock Opname</h1>
+        <button class="btn btn-ghost" id="adminLoginBtn">Login Admin</button>
+      </header>
+
+      <section class="panel search-panel">
+        <div class="field-group">
+          <label for="storeCode">Kode Toko</label>
+          <input id="storeCode" type="text" placeholder="Masukkan kode toko" />
+          <button class="history-link" id="historyBtn">Buka Riwayat (PIN)</button>
+        </div>
+
+        <div class="field-group date-field-group">
+          <label>Tanggal SO</label>
+          <div class="date-wrapper">
+            <input id="dateInput" type="text" readonly aria-label="Tanggal SO" />
+            <button class="calendar-btn" id="calendarToggle" aria-label="Buka kalender">
+              <span>📅</span>
+            </button>
+          </div>
+          <div id="calendarPopover" class="calendar-popover hidden" aria-live="polite">
+            <div class="calendar-header">
+              <button id="prevMonth" aria-label="Bulan sebelumnya">‹</button>
+              <div id="calendarLabel" class="calendar-label">Juni 2026</div>
+              <button id="nextMonth" aria-label="Bulan berikutnya">›</button>
+            </div>
+            <div class="calendar-weekdays">
+              <span>Min</span>
+              <span>Sen</span>
+              <span>Sel</span>
+              <span>Rab</span>
+              <span>Kam</span>
+              <span>Jum</span>
+              <span>Sab</span>
+            </div>
+            <div id="calendarDays" class="calendar-days"></div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="generateReportBtn">Tampilkan Laporan</button>
+      </section>
+
+      <section class="panel results-panel">
+        <div class="results-header">
+          <h2>Hasil Laporan</h2>
+          <div class="result-actions">
+            <button class="btn btn-secondary" id="downloadExcelBtn">Unduh Excel</button>
+            <button class="btn btn-secondary" id="downloadPdfBtn">Unduh PDF</button>
+          </div>
+        </div>
+
+        <div id="statusBanner" class="status-banner hidden"></div>
+
+        <div class="meta-grid">
+          <div class="meta-item"><span>Report</span><strong id="metaReport">-</strong></div>
+          <div class="meta-item"><span>Toko</span><strong id="metaStore">-</strong></div>
+          <div class="meta-item"><span>Tanggal SO</span><strong id="metaSoDate">-</strong></div>
+          <div class="meta-item"><span>Tanggal Cetak</span><strong id="metaPrintDate">-</strong></div>
+          <div class="meta-item"><span>Jenis SO</span><strong id="metaSoType">-</strong></div>
+          <div class="meta-item empty"></div>
+        </div>
+
+        <div class="table-controls">
+          <div class="control-inline">
+            <label for="sortControl">Opsi Urutan</label>
+            <select id="sortControl">
+              <option value="rack">Rack (A-Z)</option>
+              <option value="highest">Selisih (Tertinggi)</option>
+              <option value="minus-plus">Selisih (Minus ke Plus)</option>
+            </select>
+          </div>
+
+          <div class="control-inline">
+            <label for="rackFilter">Filter Rack</label>
+            <select id="rackFilter">
+              <option value="all">Semua Rack</option>
+            </select>
+          </div>
+
+          <div class="toggle-container">
+            <span>Filter Selisih Nol</span>
+            <label class="switch">
+              <input id="hideZeroToggle" type="checkbox" checked />
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>PLU</th>
+                <th>Nama Barang</th>
+                <th>Rack</th>
+                <th>Stock Fisik</th>
+                <th>Stock Onhand Toko (Akhir)</th>
+                <th>Plus/Minus</th>
+                <th>Selisih Rupiah</th>
+              </tr>
+            </thead>
+            <tbody id="reportTableBody"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="7" class="total-label">TOTAL SELISIH RUPIAH</td>
+                <td id="totalDiffValue" class="total-amount">Rp 0</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <span>Total Item SO</span>
+            <strong id="summaryTotalItems">0</strong>
+          </div>
+          <div class="summary-card">
+            <span>Total Item Selisih</span>
+            <strong id="summaryMismatchItems">0</strong>
+          </div>
+          <div class="summary-card highlight">
+            <span>Persentasi Ketidaksesuaian SO</span>
+            <strong id="summaryPercentage">0%</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="adminModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Login Admin</h3>
+          <button class="close-btn" data-close="adminModal">×</button>
+        </div>
+        <form class="modal-form">
+          <label>
+            Username
+            <input type="text" value="admin" />
+          </label>
+          <label>
+            Password
+            <input type="password" value="admin123" />
+          </label>
+          <button type="button" class="btn btn-primary">Masuk</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="historyModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-content small">
+        <div class="modal-header">
+          <h3>Riwayat Laporan</h3>
+          <button class="close-btn" data-close="historyModal">×</button>
+        </div>
+        <form class="modal-form">
+          <label>
+            PIN Verifikasi
+            <input type="password" placeholder="Masukkan PIN" />
+          </label>
+          <button type="button" class="btn btn-primary">Buka Riwayat</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.0.5/jspdf.plugin.autotable.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
